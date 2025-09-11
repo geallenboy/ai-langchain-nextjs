@@ -4,7 +4,7 @@ const getWeather = tool((city: string) => `It's always sunny in ${city}!`, {
     name: "get_weather",
     description: "Get the weather for a given city",
 });
-
+//ces
 const agent = createAgent({
     model: "anthropic:claude-3-7-sonnet-latest",
     tools: [getWeather],

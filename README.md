@@ -1,37 +1,212 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LangChain + Next.js 学习项目
 
-## Getting Started
+基于 LangChain 1.0 和 Next.js 16 的模块化 AI 应用学习平台，包含完整的学习指南和实战案例。
 
-First, run the development server:
+## 🎯 项目特色
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- 📚 **模块化设计**：代码和文档按模块清晰组织
+- 🔧 **完整示例**：从基础到进阶的 8 个学习示例
+- ✈️ **实战案例**：AI 旅行规划助手完整实现
+- 💻 **现代技术栈**：Next.js 16 + LangChain 1.0 + TypeScript 5
+- 📖 **详细文档**：每个模块都有完整的使用指南
+
+## 📂 项目结构
+
+```
+ai-langchain-nextjs/
+├── src/
+│   ├── modules/             # 核心模块
+│   │   ├── learning/        # 学习指南模块
+│   │   │   ├── examples/    # LangChain 示例代码
+│   │   │   ├── config.ts    # 模块配置
+│   │   │   └── README.md    # 模块文档
+│   │   └── travel/          # AI旅行模块
+│   │       ├── agents/      # Agent 定义
+│   │       ├── tools/       # 工具集合
+│   │       ├── config.ts    # 模块配置
+│   │       └── README.md    # 模块文档
+│   ├── app/
+│   │   ├── learning/        # 学习中心页面
+│   │   ├── travel/          # 旅行助手页面
+│   │   └── api/             # API 路由
+│   │       ├── learning/    # 学习API
+│   │       └── travel/      # 旅行API
+│   └── shared/              # 共享代码
+├── docs/
+│   ├── 学习指南/             # 学习模块文档
+│   │   ├── README.md        # 文档导航
+│   │   ├── SETUP.md         # 设置指南
+│   │   └── DEMO_GUIDE.md    # 示例说明
+│   └── AI旅行/               # 旅行模块文档
+│       ├── README.md        # 文档导航
+│       ├── AI旅行.md         # 核心指南
+│       ├── TRAVEL_GUIDE.md  # 使用指南
+│       └── API_KEYS.md      # API配置
+└── .env.example             # 环境变量示例
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 快速开始
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 1. 安装依赖
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm install
+```
 
-## Learn More
+### 2. 配置环境变量
 
-To learn more about Next.js, take a look at the following resources:
+复制 `.env.example` 文件为 `.env.local`，并填入您的 OpenAI API 密钥：
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+cp .env.example .env.local
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+在 `.env.local` 中设置：
 
-## Deploy on Vercel
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 3. 运行开发服务器
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm dev
+```
+
+访问 [http://localhost:3000](http://localhost:3000) 开始学习之旅！
+
+## 📚 学习内容
+
+### 1. 基础聊天示例
+- **基础聊天**: 了解如何初始化模型并发送消息
+- **带历史聊天**: 学习维护对话上下文
+- **流式聊天**: 理解实时响应的实现
+
+### 2. 工具系统
+- **单一工具**: 创建和使用单个工具
+- **多工具组合**: AI 智能选择合适工具
+- **工具链**: 工具间的协作和数据传递
+- **错误处理**: 处理工具执行异常
+
+### 3. 智能代理
+- **个人助理**: 个性化服务和主动关怀
+- **专业顾问**: 专业知识和解决方案提供
+- **多轮对话**: 上下文记忆和连贯交流
+- **任务导向**: 目标明确的任务执行
+
+### 4. 记忆功能
+- **基础记忆**: 保存和检索对话信息
+- **长期记忆**: 跨会话的持久化存储
+- **上下文感知**: 基于历史信息的智能响应
+- **记忆管理**: 清理和优化记忆数据
+
+### 5. 完整应用案例
+- **智能学习助手**: 个性化学习指导系统
+- **学习会话管理**: 完整学习过程引导
+- **测验和评估**: 智能生成测题和评估
+- **完整学习流程**: 端到端学习体验
+
+## 🏗️ 项目结构
+
+```
+src/
+├── app/
+│   ├── learn/              # 学习页面
+│   └── api/examples/       # API 路由
+├── lib/langchain/
+│   ├── examples/
+│   │   ├── basic-chat.ts   # 基础聊天示例
+│   │   ├── tools-examples.ts   # 工具使用示例
+│   │   ├── agent-examples.ts   # 智能代理示例
+│   │   ├── memory-examples.ts  # 记忆功能示例
+│   │   └── complete-app.ts     # 完整应用案例
+│   └── models.ts           # 模型配置
+```
+
+## 🎯 学习路径建议
+
+1. **从基础开始**: 先运行基础聊天示例，理解 LangChain 的基本概念
+2. **学习工具系统**: 了解如何扩展 AI 的能力
+3. **探索智能代理**: 学会创建有个性的 AI 助手
+4. **掌握记忆功能**: 实现更智能的对话体验
+5. **构建完整应用**: 将所学知识整合到实际项目中
+
+## 🛠️ 技术栈
+
+- **Next.js 15.5.2**: 使用 App Router 和 Turbopack
+- **LangChain**: AI 应用开发框架
+- **OpenAI GPT-4**: 语言模型
+- **TypeScript**: 类型安全
+- **Tailwind CSS 4**: 现代样式设计
+- **Zod**: 模式验证
+
+## 📖 核心概念
+
+### 模型初始化
+```typescript
+const model = await initChatModel("openai:gpt-4", {
+    temperature: 0.7
+});
+```
+
+### 工具定义
+```typescript
+const calculator = tool(
+    ({ operation, a, b }) => {
+        // 工具逻辑
+    },
+    {
+        name: "calculator",
+        description: "执行基本数学运算",
+        schema: z.object({
+            operation: z.enum(["add", "subtract", "multiply", "divide"]),
+            a: z.number(),
+            b: z.number(),
+        }),
+    }
+);
+```
+
+### 代理创建
+```typescript
+const agent = createAgent({
+    model,
+    tools: [calculator],
+    systemPrompt: "你是一个数学助手..."
+});
+```
+
+## 🎓 学习建议
+
+1. **动手实践**: 每个示例都可以直接在网页上运行测试
+2. **阅读代码**: 查看 `src/lib/langchain/examples/` 中的源码理解实现
+3. **修改尝试**: 试着修改示例代码，观察不同的效果
+4. **构建项目**: 基于学到的知识创建自己的 LangChain 应用
+
+## 🔧 开发命令
+
+```bash
+# 开发模式
+pnpm dev
+
+# 构建项目
+pnpm build
+
+# 启动生产服务器
+pnpm start
+```
+
+## 📝 环境要求
+
+- Node.js 18+
+- pnpm 或 npm
+- OpenAI API 密钥
+
+## 🤝 贡献
+
+欢迎提交 issue 和 PR 来改进这个学习项目！
+
+## 📄 许可证
+
+MIT License
 

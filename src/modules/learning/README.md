@@ -1,168 +1,56 @@
-# 学习指南模块
+# 学习指南模块（Learning Module）
 
-## 📚 模块简介
+围绕 LangChain 1.0、Next.js 16 与全新的 `ai-elements` UI 组件库，本模块帮助你一步步搭建可运行的 AI Agent 能力。本指南聚焦 `src/modules/learning` 目录，强调实战、真实场景和可视化反馈。
 
-学习指南模块提供了一系列 LangChain 1.0 的实用示例，从基础到进阶，帮助开发者快速上手 LangChain 框架。
+## 模块定位与依赖
 
-## 🎯 学习目标
+- **LangChain 1.0**：核心推理、工具和 Agent API。
+- **Next.js App Router**：`src/app/learn/page.tsx` 提供所有示例的交互入口，可直接触达 `/api/learning/examples/*`。
+- **ai-elements**：位于 `src/components/ai-elements`，是一套可复用的 Agent UI（会话、推理轨迹、工具节点等）。随着示例升级，可随时在页面中引入这些组件增强展示，例如使用 `Conversation`、`Reasoning`、`Tool` 组件输出模型推理链路。
 
-通过本模块，你将学会：
-- LangChain 的基本概念和使用方法
-- 如何定义和使用工具（Tools）
-- 结构化输出的实现方式
-- 多轮对话的上下文管理
-- 提示词模板的设计
-- 简单 Agent 的构建
-
-## 📂 目录结构
+## 目录速览
 
 ```
 learning/
 ├── examples/
-│   ├── simple-demo.ts           # 基础示例
-│   └── comprehensive-demo.ts    # 进阶示例
-├── config.ts                    # 模块配置
-├── index.ts                     # 导出索引
-└── README.md                    # 本文档
+│   ├── simple-demo.ts           # 基础对话、历史对话、连接测试
+│   └── comprehensive-demo.ts    # 工具、结构化输出、Prompt、Agent
+├── config.ts                    # 示例注册与模型参数
+├── index.ts                     # 导出入口，供 API 与 UI 引用
+└── README.md                    # 本指南
 ```
 
-## 🔧 示例列表
+`src/app/learn` 负责触发示例；`src/app/api/learning/examples/[type]/route.ts` 作为后端层，调用上述示例函数，与 LangChain 保持同一抽象层次，方便调试。
 
-### 基础示例
+## 系统化学习路线
 
-#### 1. 测试连接 (test-connection)
-- **功能**：验证 OpenAI API 配置是否正确
-- **适用场景**：初次设置项目时，确认环境变量配置
-- **核心概念**：ChatOpenAI 模型初始化
+| 阶段 | 目标 | 必做示例/文件 | 建议实践 |
+| --- | --- | --- | --- |
+| 0. 环境准备 | 熟悉依赖与 UI | `simple-demo.ts:testModelConnection` | `pnpm dev` 后先执行“测试连接”，在 `.env.local` 设置 `OPENAI_API_KEY`。 |
+| 1. 基础对话 | 掌握 ChatOpenAI 使用与消息结构 | `simpleChatDemo`、`simpleChatWithHistory` | 在 UI 中切换不同 Prompt，观察系统/用户角色差异，可使用 `ai-elements/message` 渲染回复。 |
+| 2. 工具 & 数据 | 让 LLM 调用工具并输出结构化数据 | `toolCallingDemo`、`structuredOutputDemo` | 扩展 calculator/weather 工具或新增 Webhook 工具；用 `ai-elements/tool` + `ai-elements/edge` 呈现调用链。 |
+| 3. 提示词与对话管理 | 通过模板与上下文控制模型行为 | `conversationDemo`、`promptTemplateDemo` | 将 `chain-of-thought.tsx` 可视化组件接入页面，展示思考路径与模板变量。 |
+| 4. Agent 推理 | 学会 orchestrate 工具、记忆和总结 | `simpleAgentDemo` | 为 Agent 添加自定义 search/memory 工具，并用 `ai-elements/plan`、`reasoning` 展示“思考→行动→观察→总结”。 |
+| 5. 场景化任务 | 把学习成果迁移到真实业务 | `src/modules/travel` | 将旅行助手中的工具拆分到 Learning 模块练习，或在 learning 页模拟“行程建议”“费用估算”等任务。 |
 
-#### 2. 简单聊天 (simple-chat)
-- **功能**：单轮对话示例
-- **适用场景**：基础的 AI 对话场景
-- **核心概念**：模型调用、消息传递
+## 真实场景实践建议
 
-#### 3. 历史对话 (simple-history)
-- **功能**：多轮对话，带历史记录
-- **适用场景**：需要上下文理解的对话
-- **核心概念**：消息历史管理、角色定义
+1. **对话看板**：用 `ai-elements/conversation` 渲染模型多轮回复，帮助团队讨论提示词效果。
+2. **推理轨迹回放**：接入 `ai-elements/reasoning`、`plan`、`tool`，记录 Agent 的每一步 Thought/Action/Observation，利于调试真实流程。
+3. **工具集成演练**：结合 `structuredOutputDemo`，扩展天气/搜索工具为“行程规划 API”“供应商库存 API”，并在 UI 中展示数据卡片。
+4. **跨模块迁移**：学习模块完成的 Agent 思想，可快速移植到 `travel` 模块，通过 LangChain 工具复用实现“真实用户下单”或“AI 行程规划表单”。
 
-### 进阶示例
+## 如何扩展示例
 
-#### 4. 工具调用 (tool-calling)
-- **功能**：展示 AI 如何调用自定义工具
-- **包含工具**：计算器（加减乘除）、天气查询（模拟数据）
-- **核心概念**：`tool()` 函数、Zod schema、工具绑定
+1. 在 `examples/` 创建 `*.ts`，导出 async 函数，内部通过 `ChatOpenAI`/`tool`/`Runnable`（LangChain）实现逻辑。
+2. 更新 `config.ts` 中的 `learningExamples`，映射新类型到函数，实现 UI 和 API 自动发现。
+3. (可选) 在 `src/app/learn/page.tsx` 或新的客户端组件上使用 `ai-elements`，将返回结果以更直观的 Agent UI 呈现。常见模式：执行 API → 保存推理步骤 → 传给 `Reasoning`/`Tool`/`Panel` 组件。
 
-#### 5. 结构化输出 (structured-output)
-- **功能**：从文本中提取结构化数据，返回 JSON 格式
-- **适用场景**：信息提取、数据规范化、API 集成
-- **核心概念**：`withStructuredOutput()` 方法、类型安全
+## 进一步阅读
 
-#### 6. 多轮对话 (conversation)
-- **功能**：演示完整的多轮对话流程
-- **适用场景**：聊天机器人、客服系统、教学助手
-- **核心概念**：消息数组管理、上下文累积
+- `docs/学习指南/SETUP.md`：环境搭建与依赖说明。
+- `docs/学习指南/DEMO_GUIDE.md`：每个示例的详细输入输出。
+- LangChain JS 官方文档：https://js.langchain.com/docs
+- `src/modules/travel/README.md`：真实业务模块，可对比学习如何将学习示例投入生产。
 
-#### 7. 提示词模板 (prompt-template)
-- **功能**：使用模板动态生成提示词
-- **适用场景**：批量处理、多语言适配、提示词复用
-- **核心概念**：函数式提示词、变量替换
-
-#### 8. 简单 Agent (simple-agent)
-- **功能**：展示 Agent 如何推理、决策并使用工具
-- **适用场景**：研究助手、自动化任务、复杂查询
-- **核心概念**：Agent 推理、工具选择、结果整合
-
-## 💻 使用方式
-
-### 通过 Web 界面
-
-访问 http://localhost:3000/learning 查看所有示例
-
-### 通过 API 调用
-
-```typescript
-// POST /api/learning/examples/{type}
-const response = await fetch('/api/learning/examples/simple-chat', {
-  method: 'POST',
-});
-const data = await response.json();
-console.log(data.result);
-```
-
-### 直接调用示例函数
-
-```typescript
-import { simpleChatDemo } from '@/modules/learning';
-
-const result = await simpleChatDemo();
-console.log(result);
-```
-
-## ⚙️ 配置说明
-
-### 模型配置
-
-```typescript
-// src/modules/learning/config.ts
-export const learningConfig = {
-  model: {
-    name: "gpt-4o-mini",
-    temperature: 0, // 确定性输出
-  },
-};
-```
-
-### 添加新示例
-
-1. 在 `examples/` 目录创建新文件
-2. 导出 async 函数
-3. 在 `config.ts` 注册示例类型
-4. 在 API 路由添加处理逻辑
-
-示例代码：
-
-```typescript
-// examples/my-demo.ts
-export async function myDemo() {
-  const model = new ChatOpenAI({
-    model: "gpt-4o-mini",
-    temperature: 0,
-  });
-
-  const response = await model.invoke([
-    new HumanMessage("你的问题")
-  ]);
-
-  return String(response.content);
-}
-```
-
-## 📖 相关文档
-
-- [详细示例说明](../../../docs/学习指南/DEMO_GUIDE.md)
-- [设置指南](../../../docs/学习指南/SETUP.md)
-- [LangChain 官方文档](https://js.langchain.com/docs)
-
-## 🎓 学习路径
-
-1. **第1天**：基础示例（测试连接、简单聊天、历史对话）
-2. **第2-3天**：进阶示例（工具调用、结构化输出、提示词模板）
-3. **第4-7天**：高级示例（多轮对话、Agent 系统）
-4. **实战项目**：应用到实际场景
-
-## ❓ 常见问题
-
-### Q: API 调用失败？
-A: 检查 `.env.local` 中的 `OPENAI_API_KEY` 是否配置正确
-
-### Q: 工具没有被调用？
-A: 确保工具描述清晰，让 AI 明白何时使用工具
-
-### Q: 结构化输出格式不对？
-A: 检查 Zod schema 定义，确保字段描述清晰
-
-## 🚀 下一步
-
-- 探索 [AI旅行模块](../travel/README.md) 了解实际应用
-- 学习 LangGraph 实现复杂工作流
-- 构建自己的 LangChain 应用
+通过上述路线，你可以把 Learning 模块当作“LangChain + Next.js + ai-elements”实验场：先理解概念，再补齐工具链，最后落地真实 Agent。保持迭代，每完成一阶段就将实践总结沉淀到新的示例或 UI 视图中，整个项目会逐步成长为覆盖模型推理、工具编排、UI 回放的完整学习体系。

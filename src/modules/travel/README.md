@@ -68,10 +68,22 @@ const result = await weatherTool.invoke({
 
 ### 3. 计算工具
 
-**multiplyTool**：乘法计算（如：每晚价格 × 天数）
-**additionTool**：加法计算（如：酒店 + 餐饮 + 门票）
+- **multiplyTool**：乘法计算（如：每晚价格 × 天数）
+- **additionTool**：加法计算（如：酒店 + 餐饮 + 门票）
 
-### 4. 旅行 Agent
+### 4. 货币换算 (convert_currency)
+
+**功能**：将任意金额从一种货币换算成另一种，默认包含 CNY、USD、THB、JPY 等常用币种。支持通过 `TRAVEL_CURRENCY_RATES`（JSON 字符串）覆盖汇率，便于接入企业实时汇率服务。
+
+### 5. MCP 旅行情报 (travel_intel_mcp)
+
+**功能**：通过 MCP(Model Context Protocol) 网关调用已有的旅行工具或企业内部 API。例如 `context7` 中维护的库存、折扣、目的地情报等。
+
+**使用**：
+- 配置 `TRAVEL_MCP_ENDPOINT`（指向你的 MCP HTTP 网关）和可选的 `TRAVEL_MCP_TOOL`
+- Agent 在需要实时情报时会调用该工具；若未配置则返回本地模拟数据
+
+### 6. 旅行 Agent
 
 集成所有工具，提供智能旅行规划服务：
 - 自动查询天气
@@ -206,6 +218,12 @@ OPENAI_API_KEY=your_openai_key
 # 可选（未配置时使用模拟数据）
 OPENWEATHERMAP_API_KEY=your_weather_key
 SERPER_API_KEY=your_serper_key
+# MCP 桥接（可选）
+TRAVEL_MCP_ENDPOINT=https://your-mcp-gateway/tools
+TRAVEL_MCP_TOOL=travel.intel
+
+# 自定义汇率（JSON 字符串，可选）
+TRAVEL_CURRENCY_RATES='{"CNY":1,"USD":7.15,"THB":0.21}'
 ```
 
 详见：[API密钥配置指南](../../../docs/AI旅行/API_KEYS.md)
@@ -249,13 +267,19 @@ export { currencyTool } from "./currency";
 
 ```typescript
 // agents/index.ts
-import { currencyTool } from "../tools";
+import { currencyTool, travelIntelMcpTool } from "../tools";
 
 export const travelAgent = createAgent({
-  tools: [...existingTools, currencyTool],
+  tools: [...existingTools, currencyTool, travelIntelMcpTool],
   // ...
 });
 ```
+
+### 接入 MCP 工具
+
+1. 为你现有的 MCP 服务器提供一个简单的 HTTP 网关（接受 `{ tool, arguments }`）
+2. 在 `.env.local` 中设置 `TRAVEL_MCP_ENDPOINT` 与 `TRAVEL_MCP_TOOL`
+3. Agent 将自动调用 `travel_intel_mcp`，如果网关不可用则回退到 README 中的模拟数据
 
 ### 修改提示词
 

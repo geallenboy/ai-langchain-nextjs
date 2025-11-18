@@ -6,7 +6,14 @@
 import { createAgent } from "langchain";
 import { MemorySaver } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import { weatherTool, searchTool, multiplyTool, additionTool } from "../tools";
+import {
+  weatherTool,
+  searchTool,
+  multiplyTool,
+  additionTool,
+  currencyTool,
+  travelIntelMcpTool,
+} from "../tools";
 import { travelConfig } from "../config";
 
 // 初始化聊天模型
@@ -25,7 +32,14 @@ const checkpointer = new MemorySaver();
  */
 export const travelAgent = createAgent({
   model,
-  tools: [weatherTool, searchTool, multiplyTool, additionTool],
+  tools: [
+    weatherTool,
+    searchTool,
+    travelIntelMcpTool,
+    multiplyTool,
+    additionTool,
+    currencyTool,
+  ],
   systemPrompt: travelConfig.systemPrompt,
   checkpointer,
 });

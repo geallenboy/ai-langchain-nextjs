@@ -6,3 +6,5 @@
 export { weatherTool } from "./weather";
 export { searchTool } from "./search";
 export { multiplyTool, additionTool } from "./calculator";
+export { currencyTool } from "./currency";
+export { travelIntelMcpTool } from "./mcp-bridge";

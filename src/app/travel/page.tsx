@@ -1,40 +1,162 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  Message,
+  MessageContent,
+} from "@/components/ai-elements/message";
+import {
+  Plan,
+  PlanContent,
+  PlanDescription,
+  PlanHeader,
+  PlanTitle,
+  PlanTrigger,
+} from "@/components/ai-elements/plan";
+import {
+  Task,
+  TaskContent,
+  TaskItem,
+  TaskTrigger,
+} from "@/components/ai-elements/task";
+import {
+  Suggestions,
+  Suggestion,
+} from "@/components/ai-elements/suggestion";
+import { Loader } from "@/components/ai-elements/loader";
+import { Button } from "@/components/ui/button";
+import { CodeBlock } from "@/components/ai-elements/code-block";
 
-interface Message {
-  role: "user" | "assistant";
+type Role = "user" | "assistant";
+
+interface MessageItem {
+  role: Role;
   content: string;
 }
 
+type ToolEvent = {
+  id: string;
+  node: string;
+  payload: unknown;
+  timestamp: number;
+};
+
+const scenarioSuggestions = [
+  {
+    label: "国内周末游",
+    prompt:
+      "我想这周末去杭州玩2天，住如家快捷酒店（大概300元/晚），看西湖和灵隐寺，预算1500元够吗？",
+  },
+  {
+    label: "泰国曼谷",
+    prompt:
+      "我想去泰国曼谷5天，预算5000元人民币，推荐性价比高的酒店和行程，并换算成泰铢看看够不够。",
+  },
+  {
+    label: "跨国对比",
+    prompt:
+      "比较一下去海南三亚5天和去泰国普吉岛5天，哪个更划算？需要包含天气、酒店区间、预算和建议。",
+  },
+  {
+    label: "大阪美食",
+    prompt:
+      "下个月去大阪自由行，请结合 MCP 情报列一个3天的美食+景点推荐，并给出预算。",
+  },
+];
+
+const workflowHighlights = [
+  "🌤️ 先确认天气与季节注意事项",
+  "🔍 使用搜索/MCP 查实时价格或政策",
+  "💱 必要时自动换算货币",
+  "🧮 明细方式列出费用与建议",
+];
+
+const referenceTasks = [
+  {
+    title: "如何输出结构化结果？",
+    detail:
+      "建议包含：天气与注意事项、行程安排（按天）、费用明细、预算建议/备选方案。",
+  },
+  {
+    title: "什么时候调用 MCP？",
+    detail:
+      "当用户要查库存、特定目的地的活动或企业内部数据时，可使用 travel_intel_mcp。",
+  },
+  {
+    title: "如何处理预算紧张？",
+    detail:
+      "提供至少两个策略，例如更换酒店档次或调整天数，并列出费用差异。",
+  },
+];
+
 export default function TravelPlannerPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "running" | "error">("idle");
+  const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
+  const [threadId] = useState(() => `travel_${Date.now()}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [threadId] = useState(() => `thread_${Date.now()}`);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || loading) return;
+  const createEventId = () => {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  };
 
-    const userMessage: Message = { role: "user", content: text };
+  const handleUpdates = (chunk: unknown) => {
+    if (!chunk || typeof chunk !== "object") {
+      return;
+    }
+
+    const entries: ToolEvent[] = [];
+    for (const [node, payload] of Object.entries(
+      chunk as Record<string, unknown>
+    )) {
+      if (node === "__metadata__") continue;
+      entries.push({
+        id: createEventId(),
+        node,
+        payload,
+        timestamp: Date.now(),
+      });
+    }
+
+    if (entries.length === 0) return;
+
+    setToolEvents((prev) => {
+      const merged = [...prev, ...entries];
+      const MAX_LEN = 12;
+      return merged.slice(-MAX_LEN);
+    });
+  };
+
+  const sendMessage = async (text?: string) => {
+    const content = (text ?? input).trim();
+    if (!content || loading) return;
+
+    const userMessage: MessageItem = { role: "user", content };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
+    setStatus("running");
 
     try {
       const response = await fetch("/api/travel/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: text, threadId }),
+        body: JSON.stringify({ input: content, threadId }),
       });
 
       if (!response.ok) {
@@ -56,185 +178,283 @@ export default function TravelPlannerPage() {
           for (const line of lines) {
             try {
               const { mode, chunk: data } = JSON.parse(line);
-
-              if (mode === "messages") {
-                // 处理流式token
-                // data 是一个数组，第一个元素是消息对象
-                if (Array.isArray(data) && data.length > 0) {
-                  const messageChunk = data[0];
-                  if (messageChunk?.kwargs?.content) {
-                    assistantMessage += messageChunk.kwargs.content;
-                    setMessages((prev) => {
-                      const newMessages = [...prev];
-                      const lastMsg = newMessages[newMessages.length - 1];
-                      if (lastMsg && lastMsg.role === "assistant") {
-                        lastMsg.content = assistantMessage;
-                      } else {
-                        newMessages.push({ role: "assistant", content: assistantMessage });
-                      }
-                      return newMessages;
-                    });
-                  }
+              if (mode === "updates") {
+                handleUpdates(data);
+                continue;
+              }
+              if (mode === "messages" && Array.isArray(data) && data.length > 0) {
+                const messageChunk = data[0];
+                const textChunk = messageChunk?.kwargs?.content;
+                if (textChunk) {
+                  assistantMessage += textChunk;
+                  setMessages((prev) => {
+                    const next = [...prev];
+                    const last = next[next.length - 1];
+                    if (last && last.role === "assistant") {
+                      next[next.length - 1] = {
+                        role: "assistant",
+                        content: assistantMessage,
+                      };
+                    } else {
+                      next.push({ role: "assistant", content: assistantMessage });
+                    }
+                    return next;
+                  });
                 }
               }
-            } catch (e) {
-              console.error("解析错误:", e, line);
+            } catch (error) {
+              console.error("解析流式响应失败:", error, line);
             }
           }
         }
       }
+
+      setStatus("idle");
     } catch (error) {
       console.error("发送消息错误:", error);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "抱歉，发生了错误，请重试。" },
+        {
+          role: "assistant",
+          content: "抱歉，旅行助手暂时不可用，请稍后重试。",
+        },
       ]);
+      setStatus("error");
     } finally {
       setLoading(false);
     }
   };
 
-  const exampleScenarios = [
-    {
-      label: "国内周边游",
-      prompt: "我想这周末去杭州玩2天，住如家快捷酒店（大概300元/晚），看西湖和灵隐寺，预算1500元够吗？",
-      color: "bg-blue-500 hover:bg-blue-600",
-    },
-    {
-      label: "出境游计划",
-      prompt: "我想去泰国曼谷5天，预算5000元人民币，推荐性价比高的酒店和行程",
-      color: "bg-green-500 hover:bg-green-600",
-    },
-    {
-      label: "预算对比",
-      prompt: "比较一下去海南三亚5天和去泰国普吉岛5天，哪个更划算？都是中等消费水平",
-      color: "bg-purple-500 hover:bg-purple-600",
-    },
-  ];
-
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-        <h1 className="text-3xl font-bold text-gray-900">AI旅行规划助手</h1>
-        <p className="text-gray-600 text-sm mt-1">
-          告诉我你的旅行计划，我会帮你查天气、搜索信息、计算预算
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-950 text-white">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 lg:px-8">
+        <header className="rounded-3xl border border-white/10 bg-gradient-to-br from-blue-900/70 via-indigo-900/60 to-slate-900/70 p-8 shadow-2xl">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/80">
+            LangChain · Travel Agent
+          </p>
+          <h1 className="mt-4 text-3xl font-semibold leading-tight md:text-4xl">
+            AI 旅行规划助手
+          </h1>
+          <p className="mt-3 max-w-3xl text-base text-white/80">
+            基于 LangChain 1.0、旅行工具集以及 ai-elements UI。
+            支持天气、搜索、MCP 情报、费用计算与货币换算，帮助你在浏览器中快速验证旅行 Agent
+            的真实场景。
+          </p>
+        </header>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden flex flex-col max-w-5xl mx-auto w-full p-4">
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto bg-white rounded-xl shadow-lg p-6 mb-4">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500">
-              <div className="text-6xl mb-4">✈️</div>
-              <h2 className="text-2xl font-semibold mb-2">开始你的旅行规划</h2>
-              <p className="text-center mb-6">
-                点击下方示例场景，或直接输入你的问题
-              </p>
+        <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
+          <div className="space-y-4">
+            <Plan className="border-white/10 bg-slate-900/70" defaultOpen>
+              <PlanHeader>
+                <div>
+                  <PlanTitle>工作流程</PlanTitle>
+                  <PlanDescription>
+                    旅行 Agent 会按步骤获取天气、调用 MCP/搜索、计算费用并给出建议。你可以根据需要调整提示词。
+                  </PlanDescription>
+                </div>
+                <PlanTrigger />
+              </PlanHeader>
+              <PlanContent>
+                <ul className="space-y-2 text-sm text-white/80">
+                  {workflowHighlights.map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
+                </ul>
+              </PlanContent>
+            </Plan>
 
-              {/* Example Scenarios */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
-                {exampleScenarios.map((scenario, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => sendMessage(scenario.prompt)}
-                    disabled={loading}
-                    className={`${scenario.color} disabled:bg-gray-400 text-white px-6 py-4 rounded-lg transition-all transform hover:scale-105 text-left shadow-md`}
-                  >
-                    <div className="font-semibold mb-2">{scenario.label}</div>
-                    <div className="text-xs opacity-90">{scenario.prompt}</div>
-                  </button>
+            <Task className="rounded-3xl border border-white/10 bg-white/5 p-4" defaultOpen>
+              <TaskTrigger title="常见问题 & 实战技巧" />
+              <TaskContent>
+                {referenceTasks.map((task) => (
+                  <TaskItem key={task.title}>
+                    <p className="font-semibold text-white">{task.title}</p>
+                    <p className="text-white/80">{task.detail}</p>
+                  </TaskItem>
                 ))}
+              </TaskContent>
+            </Task>
+
+            <div className="rounded-3xl border border-white/10 bg-slate-900/60 p-4 shadow-lg">
+              <p className="text-sm uppercase tracking-widest text-white/70">
+                快速提示
+              </p>
+              <p className="mt-2 text-sm text-white/80">
+                点击下方建议即可填充输入框，按 Enter 或发送按钮运行。
+              </p>
+              <div className="mt-4">
+                <Suggestions>
+                  {scenarioSuggestions.map((scenario) => (
+                    <Suggestion
+                      key={scenario.label}
+                      suggestion={scenario.prompt}
+                      className="bg-white/10 text-white hover:bg-white/20"
+                      onClick={(next) => setInput(next)}
+                    >
+                      {scenario.label}
+                    </Suggestion>
+                  ))}
+                </Suggestions>
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      msg.role === "user"
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-100 text-gray-900"
-                    }`}
-                  >
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                  </div>
-                </div>
-              ))}
-              {loading && messages[messages.length - 1]?.role === "user" && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                      <span className="text-gray-600">AI正在思考...</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
-
-        {/* Input Area */}
-        <div className="bg-white rounded-xl shadow-lg p-4">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
-              placeholder="输入你的旅行计划..."
-              disabled={loading}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-            />
-            <button
-              onClick={() => sendMessage(input)}
-              disabled={loading || !input.trim()}
-              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 transition-colors font-semibold"
-            >
-              发送
-            </button>
           </div>
 
-          {/* Quick Actions */}
-          {messages.length > 0 && (
-            <div className="mt-3 flex gap-2 flex-wrap">
-              <button
-                onClick={() => {
-                  setMessages([]);
-                  setInput("");
-                }}
-                className="text-xs px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-full transition-colors"
-              >
-                清空对话
-              </button>
-              {exampleScenarios.map((scenario, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => sendMessage(scenario.prompt)}
-                  disabled={loading}
-                  className="text-xs px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full transition-colors disabled:opacity-50"
+          <div className="relative flex flex-col rounded-3xl border border-white/10 bg-slate-900/70 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4 text-sm">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-white/60">
+                  对话板
+                </p>
+                <p className="text-white/90">Thread: {threadId}</p>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                {status === "running" && (
+                  <>
+                    <Loader size={14} />
+                    <span>生成旅行方案...</span>
+                  </>
+                )}
+                {status === "error" && <span className="text-red-300">请求失败</span>}
+                {status === "idle" && <span className="text-white/70">待命中</span>}
+              </div>
+            </div>
+
+            <Conversation className="flex-1">
+              {messages.length === 0 ? (
+                <ConversationEmptyState
+                  title="暂无对话"
+                  description="告诉我你的出行计划，Agent 会结合工具生成行程与预算。"
+                  className="text-white/80"
+                />
+              ) : (
+                <ConversationContent>
+                  {messages.map((message, index) => (
+                    <Message key={`${message.role}-${index}`} from={message.role}>
+                      <MessageContent>
+                        <p className="whitespace-pre-wrap text-sm text-white">
+                          {message.content}
+                        </p>
+                      </MessageContent>
+                    </Message>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </ConversationContent>
+              )}
+              <ConversationScrollButton />
+            </Conversation>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-2xl">
+          <p className="text-sm uppercase tracking-widest text-white/70">
+            输入旅行计划
+          </p>
+          <p className="mt-1 text-sm text-white/70">
+            支持 Enter 发送，Shift+Enter 换行。可粘贴任意背景信息（预算、成员、偏好等）。
+          </p>
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            placeholder="例如：国庆去首尔 4 天，预算 8000 人民币，想体验美食+购物+附近温泉..."
+            disabled={loading}
+            className="mt-4 h-32 w-full rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+          />
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => sendMessage()}
+              disabled={loading || !input.trim()}
+              className="rounded-full bg-blue-500 px-6 text-white hover:bg-blue-600 disabled:bg-white/30"
+            >
+              {loading ? "生成中..." : "发送"}
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full border-white/30 text-white hover:bg-white/10"
+              type="button"
+              onClick={() => {
+                setMessages([]);
+                setInput("");
+                setToolEvents([]);
+              }}
+            >
+              清空对话
+            </Button>
+            <Suggestions className="flex-1">
+              {scenarioSuggestions.map((scenario) => (
+                <Suggestion
+                  key={`input-${scenario.label}`}
+                  suggestion={scenario.prompt}
+                  className="bg-white/5 text-white hover:bg-white/20"
+                  onClick={(next) => setInput(next)}
                 >
                   {scenario.label}
-                </button>
+                </Suggestion>
               ))}
-            </div>
-          )}
+            </Suggestions>
+          </div>
         </div>
-      </div>
 
-      {/* Footer */}
-      <div className="bg-white border-t border-gray-200 px-6 py-3 text-center text-sm text-gray-600">
-        <p>
-          支持的功能: 🌤️ 天气查询 | 🔍 信息搜索 | 🧮 费用计算 | 📅 行程规划
-        </p>
+        <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-2xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-widest text-white/70">
+                工具调用追踪
+              </p>
+              <p className="text-xs text-white/60">
+                捕获 LangChain 节点（get_weather / search_google / travel_intel_mcp 等）的实时输出，方便调试。
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full text-white hover:bg-white/10"
+              onClick={() => setToolEvents([])}
+              disabled={!toolEvents.length}
+            >
+              清空记录
+            </Button>
+          </div>
+          <div className="mt-4 max-h-80 space-y-3 overflow-y-auto pr-1">
+            {toolEvents.length === 0 ? (
+              <p className="text-sm text-white/60">
+                尚未收到工具输出。运行一个旅行计划后，天气、搜索、MCP、货币换算等节点的输入输出会显示在这里。
+              </p>
+            ) : (
+              [...toolEvents]
+                .reverse()
+                .map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-2xl border border-white/10 bg-slate-950/50 p-3"
+                  >
+                    <div className="flex items-center justify-between text-xs text-white/70">
+                      <span>{event.node}</span>
+                      <span>
+                        {new Date(event.timestamp).toLocaleTimeString("zh-CN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <CodeBlock
+                        code={JSON.stringify(event.payload, null, 2)}
+                        language="json"
+                        className="[&>div]:border-white/5 [&>div]:bg-slate-900/60"
+                      />
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
